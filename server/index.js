@@ -4,70 +4,67 @@ const morgan = require('morgan');
 
 const path = require('path');
 
+
 const app = express();
 
 const getReposByUserName = require('../helpers/github.js').getReposByUsername;
 
-const { save } = require('../database');
+const { syncUserRepos, findUserRepos } = require('../database');
 
-var defaultRoute = path.join(__dirname, '../client/dist');
+const DEFAULT_ROUTE = path.join(__dirname, '../client/dist');
 
 app.use(morgan('dev'));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-// app.use(express.static(__dirname + '/../client/dist'));
-app.use(express.static(defaultRoute));
+app.use(express.static(DEFAULT_ROUTE));
+
 app.post('/repos', function (req, res) {
   // TODO - your code here!
   // This route should take the github username provided
   // and get the repo information from the github API, then
   // save the repo information in the database
-  console.log(typeof req.body, 'what is reqbody afer json');
-  var clientSearchTerm = req.body.term;
-  getReposByUserName(clientSearchTerm, (error, data) => {
-    //do the db.query but for whatever.
+  console.log('body: ', JSON.stringify(req.body, null, 2));
+
+  var { term } = req.body;
+
+  getReposByUserName(term, (error, data) => {
     if (error) {
       console.log(error);
-      return;
+      throw error;
     }
-    // [{},{},{}]
-    // console.dir(JSON.parse(data), 'this is my data');
-    var curatedRepos = Array.from(JSON.parse(data)).map((repos) => {
-      return (
-        {
-          repo_id: repos.id,
-          repo_owner: repos.full_name,
-          owner: {
-            owner_id: repos.owner.id,
-            owner_name: repos.owner.login,
-          },
-          pushed_at: repos.pushed_at,
-          url: repos.html_url,
-        }
-      );
-    });
-    console.log(curatedRepos);
 
-    // console.log(curatedRepos, 'test');
-    // save(data, (err, saveReceipt) => {
-    //   if (err) {
-    //     console.log(err);
-    //     return;
-    //   }
-    //   console.log(saveReceipt);
-    // });
+    const repos = JSON.parse(data).map(repo => ({
+      name: repo.full_name,
+      pushed_at: repo.pushed_at,
+      git_id: repo.id,
+      git_url: repo.html_url,
+    }));
+
+
+    syncUserRepos(repos)
+      .then((result) => {
+        res.send(result);
+      })
+      .catch(() => {
+        res.send('error');
+      });
   });
-
-  res.send('hello');
 });
 
 app.get('/repos', function (req, res) {
   // TODO - your code here!
   // This route should send back the top 25 repos
+  //query database
+  //and grab top repos
+  //send it back.
+  var data = findUserRepos({});
+
+  data.then((fulfilledData) => {
+    console.log(fulfilledData);
+    res.send(fulfilledData);
+  });
 });
 
-const port = 1128;
-
-app.listen(port, function () {
-  console.log(`listening on port ${port}`);
+app.listen(1128, function () {
+  console.log('listening on port 1128');
 });
