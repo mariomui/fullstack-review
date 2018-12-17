@@ -18,6 +18,10 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use(express.static(DEFAULT_ROUTE));
 
+app.get('/main.css', function (req, res) {
+  res.send('./main.css');
+});
+
 app.post('/repos', function (req, res) {
   // TODO - your code here!
   // This route should take the github username provided
@@ -35,6 +39,7 @@ app.post('/repos', function (req, res) {
 
     const repos = JSON.parse(data).map(repo => ({
       name: repo.full_name,
+      owner_name: repo.owner.login,
       pushed_at: repo.pushed_at,
       git_id: repo.id,
       git_url: repo.html_url,
@@ -57,12 +62,12 @@ app.get('/repos', function (req, res) {
   //query database
   //and grab top repos
   //send it back.
-  var data = findUserRepos({});
 
-  data.then((fulfilledData) => {
-    console.log(fulfilledData);
-    res.send(fulfilledData);
-  });
+  findUserRepos({ owner_name: req.query.term })
+    .then((fulfilledData) => {
+      console.log(fulfilledData);
+      res.send(fulfilledData);
+    });
 });
 
 app.listen(1128, function () {
